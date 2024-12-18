@@ -39,9 +39,9 @@ int main() {
       printf("Введите телефон абонента для удаления\n");
       scanf("%s", delete_tel);
       for (int i = 0; i < size; ++i) {
-        if (!(strcmp(delete_name, guide[i].name) &&
-              strcmp(delete_second_name, guide[i].second_name) &&
-              strcmp(delete_tel, guide[i].tel))) {
+        if (!strcmp(delete_name, guide[i].name) &&
+            !strcmp(delete_second_name, guide[i].second_name) &&
+            !strcmp(delete_tel, guide[i].tel)) {
           memcpy(guide[i].name, "000000000", 10);
           memcpy(guide[i].second_name, "000000000", 10);
           memcpy(guide[i].tel, "000000000", 10);
