@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <unistd.h>
 
 void sig_winch(int signo) {
   struct winsize size;
