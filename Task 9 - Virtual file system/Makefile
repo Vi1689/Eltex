@@ -1,4 +1,4 @@
-APP_NAME = task_1
+APP_NAME = mc
 
 all:
 	gcc -Wall -g $(APP_NAME).c -o main -lncursesw
