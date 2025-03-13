@@ -1,7 +1,7 @@
 APP_NAME = my_bash
 
 all: $(APP_NAME).o
-	gcc $^ -o $(APP_NAME)
+	gcc -Wall -Wextra -Werror $^ -o $(APP_NAME)
 	clang-format -i *.c 
 
 $(APP_NAME).o: $(APP_NAME).c

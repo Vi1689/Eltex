@@ -22,22 +22,26 @@ int main() {
   while (stop) {
     char **arg = malloc(sizeof(char *) * 1);
     arg[0] = malloc(sizeof(char) * 128);
-    memset(arg[0], '\0', 128);
+    memset(arg[0], '\000', 128);
     printf("Введите имя программы и её опции или exit для выхода\n");
 
-    int c, count = 0;
+    int charc, count = 0;
     size_t size = 0;
-    while ((c = fgetc(stdin)) != '\n') {
-      if (c == ' ') {
+    while ((charc = fgetc(stdin)) != '\n') {
+      if (charc == ' ') {
         size++;
         arg = realloc(arg, (size + 1) * sizeof(char *));
         arg[size] = malloc(sizeof(char) * 128);
-        memset(arg[size], '\0', 128);
+        memset(arg[size], '\000', 128);
         count = 0;
         continue;
       }
-      arg[size][count++] = c;
+      arg[size][count++] = charc;
     }
+
+    size++;
+    arg = realloc(arg, (size + 1) * sizeof(char *));
+    arg[size] = NULL;
 
     if (strcmp(arg[0], "exit") == 0) {
       clear_memory(arg, size);
@@ -47,10 +51,12 @@ int main() {
     switch (pid = fork()) {
     case -1:
       perror("Процесс не создан\n");
+      clear_memory(arg, size);
       exit(1);
     case 0:
       if (execv(arg[0], arg) == -1) {
         perror("Программа не запущена\n");
+        clear_memory(arg, size);
         exit(1);
       }
       exit(0);
