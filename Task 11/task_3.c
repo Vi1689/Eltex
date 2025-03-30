@@ -51,24 +51,24 @@ void *buyer(void *arg) {
 
 void *loader(void *arg) {
   unsigned int *id = arg;
-  int a = 0;
+  int current_shop = 0;
   while (end_shop) {
     sleep(1);
     printf("Я погрузчик %d и я проснулся\n", *id);
     for (int i = 0; i < 5; ++i) {
-      a++;
-      if (a == 5) {
-        a = 0;
+      current_shop++;
+      if (current_shop == 5) {
+        current_shop = 0;
       }
-      if (shop[a].loose == '0') {
-        pthread_mutex_lock(&m[a]);
-        shop[a].loose = '1';
-        shop[a].product += 500;
+      if (shop[current_shop].loose == '0') {
+        pthread_mutex_lock(&m[current_shop]);
+        shop[current_shop].loose = '1';
+        shop[current_shop].product += 500;
         printf("Я погрузчик %d и я пополнил магазин %d на 500 товара, теперь "
                "там %d и я засыпаю\n",
-               *id, a, shop[a].product);
-        shop[a].loose = '0';
-        pthread_mutex_unlock(&m[a]);
+               *id, current_shop, shop[current_shop].product);
+        shop[current_shop].loose = '0';
+        pthread_mutex_unlock(&m[current_shop]);
         break;
       }
     }
