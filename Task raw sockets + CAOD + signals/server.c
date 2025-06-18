@@ -73,7 +73,6 @@ void my_send(int fd, uint16_t port, uint32_t ip, char *data, size_t count) {
 void fun() { end = 0; }
 
 int main() {
-
   sigset_t set;
 
   sigemptyset(&set);
