@@ -2,5 +2,7 @@
 *.a
 *.so
 main
+server
+client
 *.txt
 *.out
