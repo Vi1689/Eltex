@@ -165,7 +165,7 @@ int main() {
             exit(1);
           } else if (!pid) {
             fun_driver(root, answers);
-
+            end = 0;
             break;
           } else {
             char mrecv[100] = {'\000'};
@@ -317,7 +317,8 @@ int main() {
           break;
 
         default:
-
+          if (input != '\n')
+            printf("Unknown command\n");
           break;
         }
 
