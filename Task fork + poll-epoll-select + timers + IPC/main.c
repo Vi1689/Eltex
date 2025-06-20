@@ -28,6 +28,69 @@ struct driver_info {
   int fd;
 };
 
+char trip(int time, int answer, int qeuq, pid_t pid) {
+
+  int timer = time;
+
+  fd_set rfds, active_fds;
+  struct timeval tv;
+
+  FD_ZERO(&active_fds);
+  FD_SET(qeuq, &active_fds);
+
+  while (timer--) {
+    char msend[100] = {'\000'};
+    memcpy(&rfds, &active_fds, sizeof(rfds));
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+    int ready = select(1024, &rfds, NULL, NULL, &tv);
+    if (ready < 0) {
+      perror("Error - select");
+      exit(1);
+    }
+    if (ready == 0) {
+      continue;
+    }
+
+    for (int fd = 0; fd < 1024; ++fd) {
+      if (FD_ISSET(fd, &rfds)) {
+
+        char mrecv[100] = {'\000'};
+
+        int tmp = mq_receive(qeuq, mrecv, 100, NULL);
+        if (tmp == -1) {
+          perror("mq_receive driver");
+          exit(1);
+        }
+
+        struct driver *recv = (struct driver *)mrecv;
+
+        if (recv->task == 'w') {
+
+          struct driver send = {0};
+
+          send.pid = pid;
+          send.task = 'w';
+          send.task_timer = timer;
+
+          memcpy(msend, &send, sizeof(send));
+
+          int tmp = mq_send(answer, msend, 100, 1);
+          if (tmp == -1) {
+            perror("mq_send");
+            exit(1);
+          }
+          break;
+        } else if (recv->task == 'e') {
+          return 'e';
+        }
+      }
+    }
+  }
+
+  return 'a';
+}
+
 void fun_driver(int root, int answers) {
 
   struct driver send = {0};
@@ -46,7 +109,7 @@ void fun_driver(int root, int answers) {
     exit(1);
   }
 
-  sleep(3);
+  sleep(1);
 
   char qname[32] = {'\000'};
   snprintf(qname, sizeof(qname), "/pid_%d", pid);
@@ -56,9 +119,7 @@ void fun_driver(int root, int answers) {
     exit(1);
   }
 
-  int end = 1;
-
-  while (end) {
+  while (1) {
     char msend[100] = {'\000'};
     char mrecv[100] = {'\000'};
 
@@ -72,7 +133,11 @@ void fun_driver(int root, int answers) {
 
     if (recv->task == 'w') {
 
-      sleep(recv->task_timer);
+      char tmp = trip(recv->task_timer, answers, qeuq, pid);
+
+      if (tmp == 'e') {
+        break;
+      }
 
       struct driver send = {0};
 
@@ -88,7 +153,7 @@ void fun_driver(int root, int answers) {
         exit(1);
       }
     } else if (recv->task == 'e') {
-      end = 0;
+      break;
     }
   }
 }
@@ -138,12 +203,12 @@ int main() {
 
   while (end) {
     memcpy(&rfds, &active_fds, sizeof(rfds));
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
+    tv.tv_sec = 0;
+    tv.tv_usec = 1000000 / 4;
     int ready = select(1024, &rfds, NULL, NULL, &tv);
     if (ready < 0) {
       perror("Error - select");
-      return 1;
+      exit(1);
     }
     if (ready == 0) {
       continue;
@@ -221,13 +286,9 @@ int main() {
 
           char msend[100] = {'\000'};
 
-          int found2 = -1;
+          int found2 = 0;
           for (int i = 0; i < count_driver; ++i) {
             if (fd_driver[i].pid == pid2) {
-              if (fd_driver[i].task == 'w') {
-                found2 = i;
-                break;
-              }
               fd_driver[i].task = 'w';
               fd_driver[i].task_timer = time;
 
@@ -238,15 +299,13 @@ int main() {
                 perror("mq_send");
                 exit(1);
               }
-              found2 = -2;
+              found2 = 1;
               break;
             }
           }
 
-          if (found2 == -1) {
+          if (!found2) {
             printf("Driver with pid %d not found\n", pid2);
-          } else if (found2 != -2) {
-            printf("Busy <%d>\n", fd_driver[found2].task_timer);
           }
 
           break;
@@ -337,6 +396,13 @@ int main() {
           if (fd_driver[i].pid == recv->pid) {
             fd_driver[i].task = recv->task;
             fd_driver[i].task_timer = recv->task_timer;
+
+            printf("Pid - %d\n", fd_driver[i].pid);
+            if (fd_driver[i].task == 'a') {
+              printf("Available\n");
+            } else {
+              printf("Busy %d\n", fd_driver[i].task_timer);
+            }
           }
         }
       }
