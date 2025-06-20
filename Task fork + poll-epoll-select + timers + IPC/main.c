@@ -65,7 +65,7 @@ char trip(int time, int answer, int qeuq, pid_t pid) {
 
         struct driver *recv = (struct driver *)mrecv;
 
-        if (recv->task == 'w') {
+        if (recv->task == 'w' || recv->task == 's') {
 
           struct driver send = {0};
 
@@ -131,12 +131,14 @@ void fun_driver(int root, int answers) {
 
     struct driver *recv = (struct driver *)mrecv;
 
-    if (recv->task == 'w') {
+    if (recv->task == 'w' || recv->task == 's') {
 
-      char tmp = trip(recv->task_timer, answers, qeuq, pid);
+      if (recv->task == 'w') {
+        char tmp = trip(recv->task_timer, answers, qeuq, pid);
 
-      if (tmp == 'e') {
-        break;
+        if (tmp == 'e') {
+          break;
+        }
       }
 
       struct driver send = {0};
@@ -222,8 +224,7 @@ int main() {
         scanf("%c", &input);
 
         switch (input) {
-        case '1':
-
+        case '1': {
           pid = fork();
           if (pid == -1) {
             perror("Процесс не создан\n");
@@ -265,11 +266,9 @@ int main() {
           printf("Driver create\n");
 
           count_driver++;
+        } break;
 
-          break;
-
-        case '2':
-
+        case '2': {
           pid_t pid2;
           int time;
 
@@ -307,10 +306,9 @@ int main() {
           if (!found2) {
             printf("Driver with pid %d not found\n", pid2);
           }
+        } break;
 
-          break;
-
-        case '3':
+        case '3': {
 
           pid_t pid3;
 
@@ -319,14 +317,23 @@ int main() {
 
           printf("Status <%d>\n", pid3);
 
+          struct driver send = {0};
+
+          send.task = 's';
+          send.task_timer = 0;
+
+          char msend[100] = {'\000'};
+
           int found3 = 0;
           for (int i = 0; i < count_driver; ++i) {
             if (fd_driver[i].pid == pid3) {
-              printf("Pid - %d\n", fd_driver[i].pid);
-              if (fd_driver[i].task == 'a') {
-                printf("Available\n");
-              } else {
-                printf("Busy %d\n", fd_driver[i].task_timer);
+
+              memcpy(msend, &send, sizeof(send));
+
+              int tmp = mq_send(fd_driver[i].fd, msend, 100, 1);
+              if (tmp == -1) {
+                perror("mq_send");
+                exit(1);
               }
               found3 = 1;
               break;
@@ -336,24 +343,29 @@ int main() {
           if (!found3) {
             printf("Driver with pid %d not found\n", pid3);
           }
+        } break;
 
-          break;
+        case '4': {
+          struct driver send = {0};
 
-        case '4':
+          send.task = 's';
+          send.task_timer = 0;
+
+          char msend[100] = {'\000'};
+
           printf("get_drivers\n");
           for (int i = 0; i < count_driver; ++i) {
-            printf("Pid - %d\n", fd_driver[i].pid);
-            if (fd_driver[i].task == 'a') {
-              printf("Available\n");
-            } else {
-              printf("Busy %d\n", fd_driver[i].task_timer);
+            memcpy(msend, &send, sizeof(send));
+
+            int tmp = mq_send(fd_driver[i].fd, msend, 100, 1);
+            if (tmp == -1) {
+              perror("mq_send");
+              exit(1);
             }
           }
+        } break;
 
-          break;
-
-        case '5':
-
+        case '5': {
           struct driver quit = {0};
 
           for (int i = 0; i < count_driver; ++i) {
@@ -372,8 +384,7 @@ int main() {
           }
 
           end = 0;
-
-          break;
+        } break;
 
         default:
           if (input != '\n')
