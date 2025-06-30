@@ -17,13 +17,6 @@ int main() {
     return 1;
   }
 
-  int flag = 1;
-
-  if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &flag, sizeof(flag)) == -1) {
-    perror("Error - setsockopt");
-    return 1;
-  }
-
   client.sin_family = AF_INET;
   client.sin_port = htons(7777);
   if (inet_aton("224.0.0.1", &client.sin_addr) == 0) {
