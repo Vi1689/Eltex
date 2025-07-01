@@ -15,6 +15,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define MAX_MSG_SIZE 100
+
 struct driver {
   char task;
   pid_t pid;
@@ -28,7 +30,7 @@ struct driver_info {
   int fd;
 };
 
-char trip(int time, int answer, int qeuq, pid_t pid) {
+char trip(int time, mqd_t answer, int qeuq, pid_t pid) {
 
   int timer = time;
 
@@ -39,7 +41,7 @@ char trip(int time, int answer, int qeuq, pid_t pid) {
   FD_SET(qeuq, &active_fds);
 
   while (timer--) {
-    char msend[100] = {'\000'};
+    char msend[MAX_MSG_SIZE] = {'\000'};
     memcpy(&rfds, &active_fds, sizeof(rfds));
     tv.tv_sec = 1;
     tv.tv_usec = 0;
@@ -55,9 +57,9 @@ char trip(int time, int answer, int qeuq, pid_t pid) {
     for (int fd = 0; fd < 1024; ++fd) {
       if (FD_ISSET(fd, &rfds)) {
 
-        char mrecv[100] = {'\000'};
+        char mrecv[MAX_MSG_SIZE] = {'\000'};
 
-        int tmp = mq_receive(qeuq, mrecv, 100, NULL);
+        int tmp = mq_receive(qeuq, mrecv, sizeof(mrecv), NULL);
         if (tmp == -1) {
           perror("mq_receive driver");
           exit(1);
@@ -75,7 +77,7 @@ char trip(int time, int answer, int qeuq, pid_t pid) {
 
           memcpy(msend, &send, sizeof(send));
 
-          int tmp = mq_send(answer, msend, 100, 1);
+          int tmp = mq_send(answer, msend, sizeof(msend), 1);
           if (tmp == -1) {
             perror("mq_send");
             exit(1);
@@ -91,7 +93,7 @@ char trip(int time, int answer, int qeuq, pid_t pid) {
   return 'a';
 }
 
-void fun_driver(int root, int answers) {
+void fun_driver(mqd_t root, mqd_t answers) {
 
   struct driver send = {0};
 
@@ -99,17 +101,28 @@ void fun_driver(int root, int answers) {
 
   send.pid = pid;
 
-  char msend[100] = {'\000'};
+  char msend[MAX_MSG_SIZE] = {'\000'};
 
   memcpy(msend, &send, sizeof(send));
 
-  int tmp = mq_send(root, msend, 100, send.pid);
+  int tmp = mq_send(root, msend, sizeof(msend), send.pid);
   if (tmp == -1) {
-    perror("mq_send");
+    perror("mq_send driver");
     exit(1);
   }
 
-  sleep(1);
+  char mrecv[MAX_MSG_SIZE] = {'\000'};
+
+  tmp = mq_receive(root, mrecv, sizeof(mrecv), NULL);
+  if (tmp == -1) {
+    perror("mq_receive driver");
+    exit(1);
+  }
+
+  if (strcmp(mrecv, "Yes")) {
+    perror("Not allowed");
+    exit(1);
+  }
 
   char qname[32] = {'\000'};
   snprintf(qname, sizeof(qname), "/pid_%d", pid);
@@ -120,10 +133,10 @@ void fun_driver(int root, int answers) {
   }
 
   while (1) {
-    char msend[100] = {'\000'};
-    char mrecv[100] = {'\000'};
+    char msend[MAX_MSG_SIZE] = {'\000'};
+    char mrecv[MAX_MSG_SIZE] = {'\000'};
 
-    int tmp = mq_receive(qeuq, mrecv, 100, NULL);
+    int tmp = mq_receive(qeuq, mrecv, sizeof(mrecv), NULL);
     if (tmp == -1) {
       perror("mq_receive driver");
       exit(1);
@@ -149,9 +162,9 @@ void fun_driver(int root, int answers) {
 
       memcpy(msend, &send, sizeof(send));
 
-      tmp = mq_send(answers, msend, 100, 1);
+      tmp = mq_send(answers, msend, sizeof(msend), 1);
       if (tmp == -1) {
-        perror("mq_send");
+        perror("mq_send driver");
         exit(1);
       }
     } else if (recv->task == 'e') {
@@ -169,7 +182,7 @@ int main() {
 
   attr.mq_flags = 0;
   attr.mq_maxmsg = 10; // Максимальное количество сообщений
-  attr.mq_msgsize = 100; // Максимальный размер сообщения
+  attr.mq_msgsize = MAX_MSG_SIZE; // Максимальный размер сообщения
   attr.mq_curmsgs = 0;
 
   mqd_t root = mq_open(name_root, O_RDWR | O_CREAT, S_IRWXU, &attr);
@@ -234,8 +247,8 @@ int main() {
             end = 0;
             break;
           } else {
-            char mrecv[100] = {'\000'};
-            int tmp = mq_receive(root, mrecv, 100, NULL);
+            char mrecv[MAX_MSG_SIZE] = {'\000'};
+            int tmp = mq_receive(root, mrecv, sizeof(mrecv), NULL);
             if (tmp == -1) {
               perror("msgrcv");
               exit(1);
@@ -261,6 +274,16 @@ int main() {
             fd_driver[count_driver].pid = recv->pid;
             fd_driver[count_driver].task = 'a';
             fd_driver[count_driver].task_timer = 0;
+
+            char msend[MAX_MSG_SIZE] = {'\000'};
+
+            strcpy(msend, "Yes");
+
+            tmp = mq_send(root, msend, sizeof(msend), 1);
+            if (tmp == -1) {
+              perror("mq_send");
+              exit(1);
+            }
           }
 
           printf("Driver create\n");
@@ -283,7 +306,7 @@ int main() {
           send.task = 'w';
           send.task_timer = time;
 
-          char msend[100] = {'\000'};
+          char msend[MAX_MSG_SIZE] = {'\000'};
 
           int found2 = 0;
           for (int i = 0; i < count_driver; ++i) {
@@ -293,7 +316,7 @@ int main() {
 
               memcpy(msend, &send, sizeof(send));
 
-              int tmp = mq_send(fd_driver[i].fd, msend, 100, 1);
+              int tmp = mq_send(fd_driver[i].fd, msend, sizeof(msend), 1);
               if (tmp == -1) {
                 perror("mq_send");
                 exit(1);
@@ -322,7 +345,7 @@ int main() {
           send.task = 's';
           send.task_timer = 0;
 
-          char msend[100] = {'\000'};
+          char msend[MAX_MSG_SIZE] = {'\000'};
 
           int found3 = 0;
           for (int i = 0; i < count_driver; ++i) {
@@ -330,7 +353,7 @@ int main() {
 
               memcpy(msend, &send, sizeof(send));
 
-              int tmp = mq_send(fd_driver[i].fd, msend, 100, 1);
+              int tmp = mq_send(fd_driver[i].fd, msend, sizeof(msend), 1);
               if (tmp == -1) {
                 perror("mq_send");
                 exit(1);
@@ -351,13 +374,13 @@ int main() {
           send.task = 's';
           send.task_timer = 0;
 
-          char msend[100] = {'\000'};
+          char msend[MAX_MSG_SIZE] = {'\000'};
 
           printf("get_drivers\n");
           for (int i = 0; i < count_driver; ++i) {
             memcpy(msend, &send, sizeof(send));
 
-            int tmp = mq_send(fd_driver[i].fd, msend, 100, 1);
+            int tmp = mq_send(fd_driver[i].fd, msend, sizeof(msend), 1);
             if (tmp == -1) {
               perror("mq_send");
               exit(1);
@@ -373,10 +396,10 @@ int main() {
             quit.pid = fd_driver[i].pid;
             quit.task = 'e';
 
-            char mquit[100] = {'\000'};
-            memcpy(mquit, &quit, sizeof(exit));
+            char mquit[MAX_MSG_SIZE] = {'\000'};
+            memcpy(mquit, &quit, sizeof(quit));
 
-            int tmp = mq_send(fd_driver[i].fd, mquit, 100, 1);
+            int tmp = mq_send(fd_driver[i].fd, mquit, sizeof(mquit), 1);
             if (tmp == -1) {
               perror("mq_send");
               exit(1);
@@ -394,8 +417,8 @@ int main() {
 
       } else if (FD_ISSET(fd, &rfds)) {
 
-        char mrecv[100] = {'\000'};
-        int tmp = mq_receive(answers, mrecv, 100, NULL);
+        char mrecv[MAX_MSG_SIZE] = {'\000'};
+        int tmp = mq_receive(answers, mrecv, sizeof(mrecv), NULL);
         if (tmp == -1) {
           perror("msgrcv");
           exit(1);
