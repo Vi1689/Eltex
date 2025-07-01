@@ -1,14 +1,11 @@
-#include <linux/module.h> /* Needed by all modules */
-
-#include <linux/kernel.h> /* Needed for pr_info() */
+#include <linux/module.h> 
+#include <linux/printk.h>
 
 int init_module(void)
 
 {
 
   pr_info("My test module loaded!!!!!\n");
-
-  /* A nonzero return means init_module failed; module can't be loaded. */
 
   return 0;
 }
